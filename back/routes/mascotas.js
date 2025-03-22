@@ -1,34 +1,51 @@
 const express = require("express");
 const router = express.Router();
-const { Op, ValidationError } = require("sequelize");
-const db = require("../base-ORM/sequelize-init");
-
-
+const { Op } = require("sequelize");
+const { mascotas } = require("../base-ORM/mascotas");
+const { clientes } = require("../base-ORM/clientes");
+const { tipoMascotas } = require("../base-ORM/tipoMascotas")
 
 router.get("/api/mascotas", async (req, res) => {
     let where = {};
-    if (req.query.NombreMascota != undefined && req.query.NombreMascota !== "") {
+    if (req.query.NombreMascota !== undefined && req.query.NombreMascota !== "") {
         where.NombreMascota = {
             [Op.like]: "%" + req.query.NombreMascota + "%",
         };
     }
 
     try {
-        let data = await db.mascotas.findAll({
-            attributes: ["IdMascota", "TipoMascota", "IdCliente", "NombreMascota", "FechaNacMascota"],
-            where,
+        const mascota = await mascotas.findAll({
+        where: where,
+        include: [{
+            model: clientes,
+            attributes: ['apellido', 'nombre', 'fechaNacimiento', 'direccion']
+        },
+        {
+            model: tipoMascotas,
+            attributes: ['Nombre', 'Descripcion', 'TamañoPromedio', 'VidaPromedio', 'NecesitaLicencia']
+        }
+        ],
+        attributes:{exclude: ['IdTipoMascota', 'IdCliente', 'IdMascota']}
         });
-        res.json(data);
+        res.json(mascota);
     } catch (error) {
-        console.error("Error al obtener mascotas:", error);
-        res.status(500).json({ message: "Error al obtener mascotas" });
+        console.error("Error al obtener las mascotas:", error);
+        res.status(500).json({ error: 'Error al obtener las mascotas' });
     }
 });
 
 router.get("/api/mascotas/:id", async (req, res) => {
     try {
-        let mascota = await db.mascotas.findOne({
-            attributes: ["IdMascota", "TipoMascota", "IdCliente", "NombreMascota", "FechaNacMascota"],
+        let mascota = await mascotas.findOne({
+            include: [{
+                model: clientes,
+                attributes: ['id', 'apellido', 'nombre', 'fechaNacimiento', 'direccion']
+            },
+            {
+                model: tipoMascotas,
+                attributes: ['IdTipoMascota', 'Nombre', 'Descripcion', 'TamañoPromedio', 'VidaPromedio', 'NecesitaLicencia']
+            }
+            ],
             where: { IdMascota: req.params.id },
         });
         if (mascota) {
@@ -42,77 +59,33 @@ router.get("/api/mascotas/:id", async (req, res) => {
     }
 });
 
-// router.post("/api/mascotas", async (req, res) => {
-//     try {
-//         let data = await db.mascotas.create({
-//             IdMascota: req.body.IdMascota,
-//             TipoMascota: req.body.TipoMascota,
-//             IdCliente: req.body.IdCliente,
-//             NombreMascota: req.body.NombreMascota,
-//             FechaNacMascota: req.body.FechaNacMascota,
-//         });
-//         res.status(200).json(data.dataValues);
-//     } catch (error) {
-//         console.error("Error al crear la mascota:", error);
-//         res.status(500).json({ message: "Error al crear la mascota" });
-//     }
-// });
-// Función para capitalizar solo la primera letra
-function capitalizeFirstLetter(string) {
-    return string.charAt(0).toUpperCase() + string.slice(1).toLowerCase();
-}
-
 router.post("/api/mascotas", async (req, res) => {
     try {
-        // Normalizamos nombre y apellido antes de la búsqueda
-        const nombreCliente = capitalizeFirstLetter(req.body.nombre);
-        const apellidoCliente = capitalizeFirstLetter(req.body.apellido);
-
-        // Buscamos al cliente por nombre y apellido (sin distinción de mayúsculas/minúsculas)
-        const cliente = await db.clientes.findOne({
-            where: {
-                nombre: { [Op.iLike]: nombreCliente }, // Op.iLike para comparación case-insensitive
-                apellido: { [Op.iLike]: apellidoCliente }
-            },
-        });
-
-        // Si el cliente no existe, devolvemos un mensaje para que se cree el cliente primero
-        if (!cliente) {
-            return res.status(404).json({ message: "Cliente no encontrado. Por favor, cree primero el cliente antes de crear la mascota." });
-        }
-
-        // Si el cliente existe, usamos su IdCliente para crear la mascota
-        const nuevaMascota = await db.mascotas.create({
+        let data = await mascotas.create({
             IdMascota: req.body.IdMascota,
-            TipoMascota: req.body.TipoMascota,
-            IdCliente: cliente.id,  // Usamos el IdCliente encontrado
+            IdTipoMascota: req.body.IdTipoMascota,
+            IdCliente: req.body.IdCliente,
             NombreMascota: req.body.NombreMascota,
             FechaNacMascota: req.body.FechaNacMascota,
         });
-
-        // Enviamos los datos de la mascota creada
-        res.status(200).json(nuevaMascota.dataValues);
+        res.status(200).json(data.dataValues);
     } catch (error) {
         console.error("Error al crear la mascota:", error);
         res.status(500).json({ message: "Error al crear la mascota" });
     }
 });
 
-
-
-
-
 router.put("/api/mascotas/:id", async (req, res) => {
     try {
-        let mascota = await db.mascotas.findOne({
-            attributes: ["IdMascota", "TipoMascota", "IdCliente", "NombreMascota", "FechaNacMascota"],
+        let mascota = await mascotas.findOne({
+            attributes: ["IdMascota", "IdTipoMascota", "IdCliente", "NombreMascota", "FechaNacMascota"],
             where: { IdMascota: req.params.id },
         });
         if (!mascota) {
             res.status(404).json({ message: "Mascota no encontrada" });
             return;
         }
-        mascota.TipoMascota = req.body.TipoMascota;
+        mascota.IdTipoMascota = req.body.IdTipoMascota;
         mascota.IdCliente = req.body.IdCliente;
         mascota.NombreMascota = req.body.NombreMascota;
         mascota.FechaNacMascota = req.body.FechaNacMascota;
@@ -127,7 +100,7 @@ router.put("/api/mascotas/:id", async (req, res) => {
 
 router.delete("/api/mascotas/:id", async (req, res) => {
     try {
-        let filasBorradas = await db.mascotas.destroy({
+        let filasBorradas = await mascotas.destroy({
             where: { IdMascota: req.params.id },
         });
         if (filasBorradas == 1) res.status(200).json({ message: "Mascota eliminada" });
@@ -139,4 +112,3 @@ router.delete("/api/mascotas/:id", async (req, res) => {
 });
 
 module.exports = router;
-

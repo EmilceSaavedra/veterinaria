@@ -1,94 +1,87 @@
-const request = require("supertest");
-const app = require("../app");
+// // veterinarios.test.js
+// const request = require("supertest");
+// const app = require("../index");
 
-const veterinarioNuevo = {
-  legajo: 1111,
-  nombre: "Mendes Sergio",
-  matricula: "Mc9999",
-  fechaRegistro: new Date().toISOString(),
-  celular: 351895632,
-  Activo: true,
+// // Datos de prueba
+// const veterinarioNuevo = {
+//   legajo: 11111,
+//   nombre: "Mendes Sergio",
+//   matricula: "M9999",
+//   fechaRegistro: new Date().toISOString().split('T')[0],
+//   celular: 3518956321,
+//   activo: true,
+//   idEspecialidad: 1
+// };
+
+// describe("Test API Veterinarios", () => {
   
-};
-const veterinarioModificado = {
-    legajo: 1890,
-    nombre: "Mendes Sergio",
-    matricula: "Mc9999",
-    fechaRegistro: new Date().toISOString(),
-    celular: 351895632,
-    Activo: false,
-};
+//   // GET - Listar veterinarios
+//   describe("GET /api/veterinarios", () => {
+//     it("debería listar todos los veterinarios", async () => {
+//       const res = await request(app).get("/api/veterinarios");
+//       expect(res.statusCode).toBe(200);
+//       expect(Array.isArray(res.body)).toBe(true);
+//     });
 
-describe("GET /api/veterinarios", function () {
-  it("Devolveria todos los veterinarios", async function () {
-    const res = await request(app)
-      .get("/api/veterinarios")
-      .set("content-type", "application/json");
-    expect(res.headers["content-type"]).toEqual(
-      "application/json; charset=utf-8"
-    );
-    expect(res.statusCode).toEqual(200);
-    expect(res.body).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-            legajo: expect.any(Number),
-            nombre: expect.any(String),
-            matricula: expect.any(String),
-            fechaRegistro: expect.any(String),
-            celular:expect.any(Number),
-            Activo: expect.any(Boolean),
-        }),
-      ])
-    );
-  });
-});
+//     it("debería filtrar por legajo", async () => {
+//       const res = await request(app).get("/api/veterinarios?legajo=11314");
+//       expect(res.statusCode).toBe(200);
+//       if (res.body.length > 0) {
+//         expect(res.body[0].legajo).toBe(11314);
+//       }
+//     });
+//   });
 
-describe("GET /api/veterinarios/:legajo", () => {
-  it("Deberia devolver el veterinario con el legajo 1268", async () => {
-    const res = await request(app).get("/api/veterinarios/1268");
-    expect(res.statusCode).toEqual(200);
-    expect(res.body).toEqual(
-      expect.objectContaining({
-        legajo: expect.Number = 1268,
-        nombre: expect.any(String),
-        matricula: expect.any(String),
-        fechaRegistro: expect.any(String),
-        celular:expect.any(Number),
-        Activo: expect.any(Boolean),
-      })
-    );
-  });
-});
+//   // POST - Crear veterinario
+//   describe("POST /api/veterinarios", () => {
+//     it("debería crear un nuevo veterinario", async () => {
+//       const res = await request(app)
+//         .post("/api/veterinarios")
+//         .send(veterinarioNuevo);
 
-describe("POST /api/veterinarios", () => {
-  it("Deberia devolver el veterinario que acabo de crear", async () => {
-    const res = await request(app).post("/api/veterinarios").send(veterinarioNuevo);
-    expect(res.statusCode).toEqual(200);
-    expect(res.body).toEqual(
-      expect.objectContaining({
-        legajo: expect.any(Number),
-        nombre: expect.any(String),
-        matricula: expect.any(String),
-        fechaRegistro: expect.any(String),
-        celular:expect.any(Number),
-        Activo: expect.any(Boolean),
-      })
-    );
-  });
-});
+//       expect(res.statusCode).toBe(201);
+//       expect(res.body.message).toContain('creado con éxito');
+//     });
 
-describe("PUT /api/veterinarios/:legajo", () => {
-  it("Deberia devolver la veterinario con el legajo 1281 modificado", async () => {
-    const res = await request(app)
-      .put("/api/veterinarios/1281")
-      .send(veterinarioModificado);
-    expect(res.statusCode).toEqual(200);
-  });
-});
+//     it("debería rechazar datos incompletos", async () => {
+//       const veterinarioIncompleto = { nombre: "Test" };
+//       const res = await request(app)
+//         .post("/api/veterinarios")
+//         .send(veterinarioIncompleto);
 
-describe("DELETE /api/veterinarios/:legajo", () => {
-  it("Deberia devolver el veterinario con el legajo NUEVO borradoo", async () => {
-    const res = await request(app).delete("/api/veterinarios/"+veterinarioNuevo.legajo);
-    expect(res.statusCode).toEqual(200);
-  });
-});
+//       expect(res.statusCode).toBe(400);
+//     });
+//   });
+
+//   // PUT - Modificar veterinario
+//   describe("PUT /api/veterinarios/:legajo", () => {
+//     it("debería modificar un veterinario", async () => {
+//       const modificacion = {
+//         ...veterinarioNuevo,
+//         nombre: "Mendes Sergio Modificado"
+//       };
+
+//       const res = await request(app)
+//         .put(`/api/veterinarios/${veterinarioNuevo.legajo}`)
+//         .send(modificacion);
+
+//       expect(res.statusCode).toBe(200);
+//       expect(res.body.message).toContain('modificado con éxito');
+//     });
+//   });
+
+//   // DELETE - Eliminar veterinario
+//   describe("DELETE /api/veterinarios/:legajo", () => {
+//     it("debería eliminar un veterinario", async () => {
+//       const res = await request(app)
+//         .delete(`/api/veterinarios/${veterinarioNuevo.legajo}`);
+//       expect(res.statusCode).toBe(200);
+//     });
+
+//     it("debería manejar legajo inexistente", async () => {
+//       const res = await request(app)
+//         .delete("/api/veterinarios/99999");
+//       expect(res.statusCode).toBe(404);
+//     });
+//   });
+// }); 

@@ -1,41 +1,55 @@
+require('dotenv').config({ path: './back/.env' });
+
 const express = require("express");
 const cors = require('cors');
-// crear servidor
+const cookieParser = require('cookie-parser'); // Importar cookie-parser
+
+// Crear servidor
 const app = express();
-app.use(express.json());
-require("./base-ORM/sqlite-init");  // crear base si no existe
-app.use(cors());
 
-// controlar ruta
-app.get("/", (req, res) => {
-  res.send("Backend Hecho por Emi :D!");
-});
+// Configurar middlewares
+app.use(cors({
+    origin: 'http://localhost:3000', // El origen del frontend
+    credentials: true // Permitir cookies
+}));
+app.use(express.json()); // Parsear JSON del cuerpo de la solicitud
+app.use(cookieParser()); // Procesar cookies
 
+require("./base-ORM/sqlite-init"); // Crear base si no existe
+
+// Rutas
 const veterinarioRouter = require("./routes/veterinario");
-app.use(veterinarioRouter);
-
+const especialidadesRouter = require("./routes/especialidades");
 const clientesRouter = require("./routes/clientes");
-app.use(clientesRouter);
-
 const consultasRouter = require("./routes/consultas");
-app.use(consultasRouter);
-
 const mascotasRouter = require("./routes/mascotas");
+const tipoMascotasRouter = require("./routes/tipoMascota");
+const seguridadRouter = require("./routes/seguridad");
+const turnosRouter = require("./routes/turnos");
+const tratamientosRouter = require("./routes/tratamientos");
+
+// Uso de rutas
+app.use(veterinarioRouter);
+app.use(especialidadesRouter);
+app.use(clientesRouter);
+app.use(consultasRouter);
 app.use(mascotasRouter);
+app.use(tipoMascotasRouter);
+app.use(seguridadRouter); // Rutas de seguridad (ejemplo: login)
+app.use(turnosRouter);
+app.use(tratamientosRouter);
 
-// const seguridadRouter = require("./routes/seguridad");
-// app.use(seguridadRouter);
-
+// Ruta raíz
 app.get("/", (req, res) => {
   res.send("API Veterinaria 2024");
 });
 
-
-
+// Servidor
 if (!module.parent) {
-  const PORT = 3500;
+  const PORT = process.env.PORT || 3500;
   app.listen(PORT, () => {
-    console.log(`server listening on port: ${PORT}`);
+    console.log(`Server listening on port: ${PORT}`);
   });
 }
+
 module.exports = app;

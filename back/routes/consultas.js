@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { Op, ValidationError } = require("sequelize");
-const db = require("../base-ORM/sequelize-init");
+const db = require("../base-ORM/consultas");
 
 router.get("/api/consultas", async function (req, res, next) {
   let where = {};
@@ -14,9 +14,8 @@ router.get("/api/consultas", async function (req, res, next) {
     attributes: [
       "IdConsulta",
       "Fecha",
-      "Observacion",
+      "IdTratamiento",
       "Precio",
-      "IdMascota",
       "IdCliente",
       "LegajoVeter",
     ],
@@ -32,9 +31,8 @@ router.get("/api/consultas/:id", async function (req, res, next) {
     attributes: [
       "IdConsulta",
       "Fecha",
-      "Observacion",
+      "IdTratamiento",
       "Precio",
-      "IdMascota",
       "IdCliente",
       "LegajoVeter",
     ],
@@ -47,7 +45,7 @@ router.get("/api/consultas/:id", async function (req, res, next) {
 router.post("/api/consultas/", async (req, res) => {
   let data = await db.consultas.create({
     Fecha: req.body.Fecha,
-    Observacion: req.body.Observacion,
+    IdTratamiento: req.body.IdTratamiento,
     Precio: req.body.Precio,
     IdMascota: req.body.IdMascota,
     IdCliente: req.body.IdCliente,
@@ -61,9 +59,8 @@ router.put("/api/consultas/:id", async (req, res) => {
     attributes: [
       "IdConsulta",
       "Fecha",
-      "Observacion",
+      "IdTratamiento",
       "Precio",
-      "IdMascota",
       "IdCliente",
       "LegajoVeter",
     ],
@@ -74,32 +71,15 @@ router.put("/api/consultas/:id", async (req, res) => {
     return;
   }
   (item.Fecha = req.body.Fecha),
-    (item.Observacion = req.body.Observacion),
+    (item.IdTratamiento = req.body.IdTratamiento),
     (item.Precio = req.body.Precio),
-    (item.IdMascota = req.body.IdMascota),
     (item.IdCliente = req.body.IdCliente),
     (item.LegajoVeter = req.body.LegajoVeter),
     await item.save();
   res.sendStatus(200);
 });
 
-router.put("/api/veterinarios/:legajo", async (req, res) => {
-  let item = await db.veterinarios.findOne({
-      attributes: ["Legajo", "Nombre", "Matricula", "FechaRegistro", "Celular",],
-      where: { legajo: req.params.legajo },
-  });
-  if (!item) {
-    res.status(404).json({ message: "Veterinario no encontrado!! :(" });
-    return;
-  }
-    (item.legajo = req.body.legajo),
-    (item.nombre = req.body.nombre),
-    (item.matricula = req.body.matricula),
-    (item.fechaRegistro = req.body.fechaRegistro),
-    (item.celular = req.body.celular),  
-        await item.save();
-  res.sendStatus(200);
-});
+
 
 router.delete("/api/consultas/:id", async (req, res) => {
   let filasBorradas = await db.consultas.destroy({

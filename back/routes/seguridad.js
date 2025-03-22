@@ -1,102 +1,205 @@
-// const express = require("express");
-// const router = express.Router();
-// const jwt = require("jsonwebtoken");
-// const auth = require("./seguridad/auth");
+const express = require("express");
+const router = express.Router();
+const jwt = require("jsonwebtoken");
+const bcrypt = require("bcrypt");
+const User = require("../base-ORM/seguridaduser");
+require("dotenv").config(); // Cargar variables de entorno
 
-// const users = [
-//   {
-//     usuario: "admin",
-//     clave: "123",
-//     rol: "admin",
-//   },
-//   {
-//     usuario: "juan",
-//     clave: "123",
-//     rol: "member",
-//   },
-// ];
-// let refreshTokens = [];
+const accessTokenSecret = process.env.ACCESS_TOKEN_SECRET;
+const refreshTokenSecret = process.env.REFRESH_TOKEN_SECRET;
 
-// router.post("/api/login", (req, res) => {
-//   // #swagger.tags = ['Seguridad']
-//   // #swagger.summary = 'Login de usuarios: admin:123(rol administrador), juan:123(rol miembro)'
+let refreshTokens = []; // Almacena los tokens de refresco
 
-//   const { usuario, clave } = req.body;
 
-//   // Filter user from the users array by usuario and clave
-//   const user = users.find((u) => {
-//     return u.usuario === usuario && u.clave === clave;
-//   });
+// Registro de usuario
+router.post("/api/register", async (req, res) => {
+  const { username, password, rol } = req.body;
 
-//   if (user) {
-//     // Generate an access token
-//     const accessToken = jwt.sign(
-//       { usuario: user.usuario, rol: user.rol },
-//       auth.accessTokenSecret,
-//       { expiresIn: "20m" }
-//     );
+  try {
+    // Validar campos
+    if (!username || !password || !rol) {
+      return res.status(400).json({ message: "Todos los campos son requeridos" });
+    }
 
-//     // Avanzado!
-//     const refreshToken = jwt.sign(
-//       { usuario: user.usuario, rol: user.rol },
-//       auth.refreshTokenSecret
-//     );
+    if (!["admin", "miembro"].includes(rol)) {
+      return res.status(400).json({ message: "Rol debe ser 'admin' o 'miembro'" });
+    }
 
-//     refreshTokens.push(refreshToken);
+    // Encriptar contraseña
+    const hashedPassword = await bcrypt.hash(password, parseInt(process.env.SALT_ROUNDS, 10) || 10);
 
-//     res.json({
-//       accessToken,
-//       refreshToken,
-//       message: "Bienvenido " + user.usuario + "!",
-//     });
-//   } else {
-//     res.json({ message: "usuario or clave incorrecto" });
-//   }
-// });
+    // Crear usuario
+    const newUser = await User.create({
+      username,
+      password: hashedPassword,
+      rol,
+    });
 
-// router.post("/api/logout", (req, res) => {
-//   // #swagger.tags = ['Seguridad']
-//   // #swagger.summary = 'Logout: invalida el refresh token (no invalida el token actual!!!)'
+    res.status(201).json({
+      message: "Usuario registrado correctamente",
+      userId: newUser.id,
+    });
+  } catch (error) {
+    console.error("Error detallado:", error);
 
-//   // recordar que el token sigue valido hasta que expire, aqui evitamos que pueda renovarse cuando expire!
-//   let message = "Logout inválido!";
-//   const { token } = req.body;
-//   if (refreshTokens.includes(token)) {
-//     message = "Usuario deslogueado correctamente!";
-//   }
+    if (error.name === "SequelizeValidationError") {
+      return res.status(400).json({
+        message: "Error de validación",
+        errors: error.errors.map((e) => e.message),
+      });
+    }
 
-//   refreshTokens = refreshTokens.filter((t) => t !== token);
+    if (error.name === "SequelizeUniqueConstraintError") {
+      return res.status(400).json({ message: "El usuario ya existe" });
+    }
 
-//   res.json({ message });
-// });
+    res.status(500).json({
+      message: "Error interno del servidor",
+      error: error.message,
+    });
+  }
+});
 
-// router.post("/api/token", (req, res) => {
-//   // #swagger.tags = ['Seguridad']
-//   // #swagger.summary = 'refresh token'
-//   const { refreshToken } = req.body;
+//------------------------- Login de usuario ---------------------------------
+router.post("/api/login", async (req, res) => {
+  const { username, password } = req.body;
 
-//   if (!refreshToken) {
-//     return res.sendStatus(401);
-//   }
+  try {
+    // Validar usuario y contraseña
+    if (!username || !password) {
+      return res.status(400).json({ message: "Usuario y contraseña son requeridos" });
+    }
 
-//   if (!refreshTokens.includes(refreshToken)) {
-//     return res.sendStatus(403);
-//   }
+    // Buscar usuario en la base de datos
+    const user = await User.findOne({ where: { username } });
+    if (!user) {
+      return res.status(401).json({ message: "Credenciales incorrectas" });
+    }
 
-//   jwt.verify(refreshToken, auth.refreshTokenSecret, (err, user) => {
-//     if (err) {
-//       return res.sendStatus(403);
-//     }
+    // Validar contraseña con bcrypt
+    const validPassword = await bcrypt.compare(password, user.password);
+    if (!validPassword) {
+      return res.status(401).json({ message: "Credenciales incorrectas" });
+    }
 
-//     const accessToken = jwt.sign(
-//       { usuario: user.usuario, rol: user.rol },
-//       auth.accessTokenSecret,
-//       { expiresIn: "20m" }
-//     );
+    // Verificar secretos de token
+    if (!accessTokenSecret || !refreshTokenSecret) {
+      console.error("Token secrets no configurados");
+      return res.status(500).json({ message: "Error de configuración del servidor" });
+    }
 
-//     res.json({
-//       accessToken,
-//     });
-//   });
-// });
-// module.exports = router;
+    // Generar tokens
+    const accessToken = jwt.sign(
+      { id: user.id, username: user.username, rol: user.rol },
+      accessTokenSecret,
+      { expiresIn: "10m" }
+    );
+
+    const refreshToken = jwt.sign(
+      { id: user.id, username: user.username, rol: user.rol },
+      refreshTokenSecret
+    );
+     // Guardar el refreshToken en el array
+     refreshTokens.push(refreshToken);
+
+
+    // Guardar token de acceso y refresco en cookies
+    res.cookie("accessToken", accessToken, {
+      httpOnly: true, // No accesible mediante JavaScript
+      secure: process.env.NODE_ENV === "production", // Solo HTTPS en producción
+      sameSite: "Lax", // Previene CSRF
+      maxAge: 10 * 60 * 1000, // 10 minutos
+    });
+
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true, // No accesible mediante JavaScript
+      secure: process.env.NODE_ENV === "production", // Solo HTTPS en producción
+      sameSite: "Lax", // Previene CSRF
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 días
+    });
+
+    // Responder con el rol y mensaje de bienvenida
+    res.json({
+      user: {
+        id: user.id,
+        username: user.username,
+        rol: user.rol
+      }
+    });
+
+
+
+
+  } catch (error) {
+    console.error("Error en login:", error);
+    res.status(500).json({
+      message: "Error interno del servidor",
+      error: error.message,
+    });
+  }
+});
+
+// Logout de usuario
+// Logout de usuario
+router.post("/api/logout", (req, res) => {
+  const refreshToken = req.cookies.refreshToken;
+
+  if (!refreshToken) {
+    return res.status(400).json({ message: "No se proporcionó token" });
+  }
+
+  // Verificar si el token de refresco es válido
+  if (!refreshTokens.includes(refreshToken)) {
+    return res.status(403).json({ message: "Token de refresco inválido" });
+  }
+
+  // Eliminar el refresh token de la lista
+  const index = refreshTokens.indexOf(refreshToken);
+  if (index > -1) {
+    refreshTokens.splice(index, 1); // Elimina el refreshToken de la lista de tokens válidos
+  }
+
+  // Eliminar las cookies
+  res.clearCookie("accessToken", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "Lax" });
+  res.clearCookie("refreshToken", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "Lax" });
+
+  return res.status(200).json({ message: "Cierre de sesión exitoso" });
+});
+
+// Endpoint para refrescar el token de acceso---------------------------------------------------
+// Endpoint para refrescar el token de acceso
+router.post("/api/token", (req, res) => {
+  const refreshToken = req.cookies.refreshToken;
+
+  // Verificar si el refresh token está presente y es válido
+  if (!refreshToken || !refreshTokens.includes(refreshToken)) {
+    return res.status(403).json({ message: "Token de refresco inválido o expirado" });
+  }
+
+  try {
+    // Verificar y decodificar el refresh token
+    const user = jwt.verify(refreshToken, refreshTokenSecret);
+
+    // Generar un nuevo access token
+    const accessToken = jwt.sign(
+      { id: user.id, username: user.username, rol: user.rol },
+      accessTokenSecret,
+      { expiresIn: "10m" }
+    );
+
+    // Responder con el nuevo access token
+    res.json({
+      accessToken, // Devolver el nuevo access token
+      user: {
+        id: user.id,
+        username: user.username,
+        rol: user.rol,
+      },
+    });
+  } catch (error) {
+    console.error("Error al verificar el token:", error);
+    return res.status(403).json({ message: "Token de refresco inválido o expirado" });
+  }
+});
+
+module.exports = router;
